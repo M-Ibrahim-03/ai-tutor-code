@@ -16,10 +16,10 @@ function CosmicBackground() {
       <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade />
       <Float speed={3} rotationIntensity={0.5} floatIntensity={2}>
         <Text
-          font="/fonts/space-age.woff"
           fontSize={2}
           color="#7c3aed"
           position={[0, 0, -10]}
+          font="https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf"
         >
           EduVerse
           <meshBasicMaterial color="#7c3aed" />

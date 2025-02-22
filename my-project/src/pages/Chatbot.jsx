@@ -1,7 +1,18 @@
-import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
-import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from "react";
+import { motion } from "framer-motion";
+import { FaPaperPlane, FaRobot, FaUser, FaSpinner } from "react-icons/fa";
+import axios from 'axios';
+
+// Create API instance with consistent configuration
+const api = axios.create({
+  baseURL: 'http://localhost:5000/api/v1',
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  },
+  withCredentials: true,
+  timeout: 30000 // 30 second timeout
+});
 
 // Rate limiter class to manage API request frequency
 class RateLimiter {
@@ -13,7 +24,6 @@ class RateLimiter {
 
   async acquireToken() {
     const now = Date.now();
-    // Clean up expired timestamps
     this.requests = this.requests.filter(
       timestamp => now - timestamp < this.timeWindow
     );
@@ -30,207 +40,159 @@ class RateLimiter {
   }
 }
 
-// Update API configuration
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true // Important for CORS with credentials
-});
-
-// Add request interceptor for token
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
 export default function Chatbot() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!user) {
-      navigate('/login');
-    }
-  }, [user, navigate]);
-
   const [message, setMessage] = useState("");
-  const [response, setResponse] = useState("");
+  const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const messagesEndRef = useRef(null);
   const [rateLimiter] = useState(() => new RateLimiter());
   
-  // Message history for context
-  const [messageHistory, setMessageHistory] = useState([]);
-  
-  // Retry configuration
-  const MAX_RETRIES = 3;
-  const INITIAL_RETRY_DELAY = 1000;
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
-  // Update makeApiCall function
-  const makeApiCall = useCallback(async (retryCount = 0, delay = INITIAL_RETRY_DELAY) => {
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSendMessage = async () => {
+    if (!message.trim() || isLoading) return;
+
     try {
       await rateLimiter.acquireToken();
+      setIsLoading(true);
+      setError(null);
       
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
+      // Add user message
+      const userMessage = { type: 'user', content: message.trim() };
+      setMessages(prev => [...prev, userMessage]);
+      
+      // Store message and clear input
+      const currentMessage = message.trim();
+      setMessage('');
 
-      const response = await api.post('/ai/ask', 
-        { message },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
+      // Send message to AI
+      const response = await api.post('/ai/ask', {
+        message: currentMessage
+      });
 
-      if (response.data && response.data.response) {
-        return response.data.response;
+      // Add AI response
+      if (response.data && (response.data.response || response.data.message)) {
+        setMessages(prev => [...prev, { 
+          type: 'ai', 
+          content: response.data.response || response.data.message 
+        }]);
       } else {
-        throw new Error('Invalid response format');
+        throw new Error('Invalid response from server');
       }
-    } catch (error) {
-      console.error('API Error:', error);
-      if (error.message === 'No authentication token found') {
-        navigate('/login');
-        return;
-      }
-      if (error.response?.status === 429 && retryCount < MAX_RETRIES) {
-        // Get retry delay from headers or use exponential backoff
-        const retryAfter = parseInt(error.response.headers['retry-after']) * 1000 || delay;
-        
-        setError(`Rate limited. Retrying in ${retryAfter / 1000} seconds...`);
-        await new Promise(resolve => setTimeout(resolve, retryAfter));
-        
-        // Retry with exponential backoff
-        return makeApiCall(retryCount + 1, delay * 2);
-      }
-      throw error;
-    }
-  }, [message, rateLimiter, navigate]);
-
-  // Main ask function with enhanced error handling
-  const askAI = async () => {
-    if (!message.trim()) return;
-    
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const aiResponse = await makeApiCall();
-      setResponse(aiResponse);
+    } catch (err) {
+      console.error('Error:', err);
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to get response. Please try again.';
+      setError(errorMessage);
       
-      // Update message history
-      setMessageHistory(prev => [
-        ...prev,
-        { role: "user", content: message },
-        { role: "assistant", content: aiResponse }
-      ]);
-      
-      setMessage(""); // Clear input after successful response
-    } catch (error) {
-      console.error("Error:", error);
-      
-      // Provide user-friendly error messages
-      if (error.response?.status === 401) {
-        setError("Authentication failed. Please check your API key.");
-      } else if (error.response?.status === 429) {
-        setError("Too many requests. Please try again in a moment.");
-      } else if (error.code === "ECONNABORTED") {
-        setError("Request timed out. Please check your connection.");
-      } else {
-        setError("An unexpected error occurred. Please try again.");
-      }
+      // Add error message to chat
+      setMessages(prev => [...prev, { 
+        type: 'ai', 
+        content: 'I apologize, but I encountered an error. Please try again.' 
+      }]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle Enter key press
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !isLoading) {
-      askAI();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-spaceBlack to-galaxyBlue text-white p-4">
-      <div className="glass-container w-full max-w-2xl p-8 rounded-3xl backdrop-blur-xl">
-        <h2 className="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-cyan-400 to-teal-500 bg-clip-text text-transparent">
-          Eduverse AI Tutor
-        </h2>
-        
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Ask about quantum physics..."
-            className="w-full p-4 rounded-xl bg-white/5 border border-cyan-500/30 focus:border-cyan-400/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 transition-all"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            disabled={isLoading}
-          />
-          
-          <button
-            className={`absolute right-2 top-2 px-6 py-2 rounded-lg ${
-              isLoading 
-                ? 'bg-gray-600 cursor-not-allowed' 
-                : 'bg-cyan-500 hover:bg-cyan-400'
-            } transition-all`}
-            onClick={askAI}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <span className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Thinking...
-              </span>
-            ) : 'Ask'}
-          </button>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-2xl md:text-4xl font-bold text-center mb-8 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+          Chat with EduVerse AI
+        </h1>
 
-        {/* Error Message Display */}
-        {error && (
-          <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-200">
-            {error}
-          </div>
-        )}
-
-        {/* Response Display */}
-        {response && (
-          <div className="mt-6 p-4 bg-white/5 rounded-xl border border-cyan-500/20 animate-fade-in">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 bg-cyan-500/20 rounded-full flex items-center justify-center">
-                <span className="text-cyan-400">AI</span>
+        {/* Chat Container */}
+        <div className="bg-gray-800/50 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-700/50 h-[calc(100vh-12rem)] md:h-[calc(100vh-14rem)] flex flex-col">
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+            {messages.length === 0 && (
+              <div className="text-center text-gray-400 mt-8">
+                <FaRobot className="text-4xl mx-auto mb-4" />
+                <p>Hi! I'm your AI tutor. Ask me anything about your studies!</p>
               </div>
-              <p className="flex-1 text-stellarGray whitespace-pre-wrap">{response}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Message History */}
-        {messageHistory.length > 0 && (
-          <div className="mt-6 space-y-4">
-            {messageHistory.map((msg, index) => (
-              <div
+            )}
+            {messages.map((msg, index) => (
+              <motion.div
                 key={index}
-                className={`p-4 rounded-xl ${
-                  msg.role === "user" 
-                    ? "bg-cyan-500/10 ml-auto" 
-                    : "bg-white/5"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`flex items-start gap-3 ${
+                  msg.type === 'user' ? 'flex-row-reverse' : ''
                 }`}
               >
-                <p className="text-sm text-stellarGray">{msg.content}</p>
-              </div>
+                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                  msg.type === 'user' ? 'bg-purple-500' : 'bg-blue-500'
+                }`}>
+                  {msg.type === 'user' ? <FaUser /> : <FaRobot />}
+                </div>
+                <div className={`max-w-[80%] md:max-w-[70%] rounded-2xl px-4 py-3 ${
+                  msg.type === 'user' 
+                    ? 'bg-purple-500/30 ml-auto' 
+                    : 'bg-blue-500/30'
+                }`}>
+                  <p className="text-sm md:text-base whitespace-pre-wrap">{msg.content}</p>
+                </div>
+              </motion.div>
             ))}
+            {isLoading && (
+              <div className="flex items-center gap-2 text-gray-400">
+                <FaSpinner className="animate-spin" />
+                <span>AI is thinking...</span>
+              </div>
+            )}
+            {error && (
+              <div className="text-red-400 text-center py-2 bg-red-500/10 rounded-xl">
+                {error}
+              </div>
+            )}
+            <div ref={messagesEndRef} />
           </div>
-        )}
+
+          {/* Input Area */}
+          <div className="p-4 border-t border-gray-700/50">
+            <div className="flex gap-2">
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask anything about your studies..."
+                className="flex-1 bg-gray-700/50 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none h-12 md:h-14"
+                style={{ minHeight: '3rem' }}
+              />
+              <motion.button
+                onClick={handleSendMessage}
+                disabled={isLoading || !message.trim()}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={`px-4 rounded-xl flex items-center justify-center gap-2 ${
+                  isLoading || !message.trim()
+                    ? 'bg-gray-700 cursor-not-allowed'
+                    : 'bg-purple-500 hover:bg-purple-600'
+                }`}
+              >
+                {isLoading ? (
+                  <FaSpinner className="animate-spin" />
+                ) : (
+                  <FaPaperPlane />
+                )}
+              </motion.button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

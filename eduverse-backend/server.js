@@ -4,7 +4,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import connectDB from './config/db.js';
-import authRoutes from './routes/auth.js';
 import aiRoutes from './routes/ai.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -17,17 +16,29 @@ connectDB();
 
 // Middleware
 app.use(express.json());
+
+// CORS configuration
+const allowedOrigins = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'];
+
 app.use(cors({
-  origin: ['http://localhost:5174', 'http://localhost:5173'], // Allow both ports commonly used by Vite
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['Access-Control-Allow-Origin']
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(helmet());
 
-// Add preflight handling for all routes
-app.options('*', cors());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -37,7 +48,6 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // Routes
-app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/ai', aiRoutes);
 
 // Error handling

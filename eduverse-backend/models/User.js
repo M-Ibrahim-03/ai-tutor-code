@@ -7,7 +7,6 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Please add a username'],
     unique: true,
     trim: true,
-    minlength: [3, 'Username must be at least 3 characters'],
     maxlength: [30, 'Username cannot exceed 30 characters']
   },
   email: {
@@ -22,7 +21,7 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, 'Please add a password'],
-    minlength: [6, 'Password must be at least 6 characters'],
+    minlength: 6,
     select: false
   },
   xp: {
@@ -44,13 +43,10 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// Pre-save middleware to hash password
+// Encrypt password using bcrypt
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
-    next();
-  }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+  if (!this.isModified('password')) next();
+  this.password = await bcrypt.hash(this.password, 12);
 });
 
 export default mongoose.model('User', userSchema);

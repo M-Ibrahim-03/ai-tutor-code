@@ -1,17 +1,21 @@
 import express from 'express';
-import { protect } from '../middleware/auth.js';
-import { askAI } from '../controllers/aiController.js';
+import multer from 'multer';
+import { askAI, generateQuiz, analyzeLessonSummary, transcribeAudio } from '../controllers/aiController.js';
 
 const router = express.Router();
 
-// Add explicit OPTIONS handling
-router.options('/ask', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin);
-  res.header('Access-Control-Allow-Methods', 'POST');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.status(200).send();
+// Configure multer for audio file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
 });
 
-router.post('/ask', protect, askAI);
+router.post('/ask', askAI);
+router.post('/generate-quiz', generateQuiz);
+router.post('/analyze-lesson', analyzeLessonSummary);
+router.post('/transcribe', upload.single('audio'), transcribeAudio);
 
 export default router;
