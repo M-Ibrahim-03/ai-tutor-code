@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
-import { FaBars, FaTimes, FaRocket, FaSatellite, FaRobot, FaGraduationCap, FaFileAlt, FaHome, FaBook } from "react-icons/fa";
+import { FaBars, FaTimes, FaRocket, FaRobot, FaGraduationCap, FaFileAlt, FaHome, FaBook } from "react-icons/fa";
 import { Canvas } from "@react-three/fiber";
 import { Stars } from "@react-three/drei";
 import DarkModeToggle from "./DarkModeToggle";
@@ -17,7 +17,6 @@ export default function Navbar() {
     { path: "/lesson-analysis", label: "Lesson Analysis", icon: <FaBook /> },
     { path: "/quiz", label: "Quantum Quiz", icon: <FaGraduationCap /> },
     { path: "/file-analyzer", label: "File Analyzer", icon: <FaFileAlt /> },
-    { path: "/leaderboard", label: "Leaderboard", icon: <FaSatellite /> },
   ];
 
   const closeMenu = () => {

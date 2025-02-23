@@ -8,7 +8,6 @@ import FileAnalyzer from "./pages/FileAnalyzer";
 import Footer from "./components/Footer";
 import NotFound from "./pages/NotFound";
 import Chatbot from "./pages/Chatbot";
-import Leaderboard from "./pages/Leaderboard";
 import LessonAnalysis from "./pages/LessonAnalysis";
 
 function App() {
@@ -23,7 +22,6 @@ function App() {
           <Route path="/file-analyzer" element={<FileAnalyzer />} />
           <Route path="/chat" element={<Chatbot />} />
           <Route path="/lesson-analysis" element={<LessonAnalysis />} />
-          <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>

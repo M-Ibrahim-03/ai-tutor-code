@@ -78,7 +78,7 @@ export default function Footer() {
               <FaGithub className="text-2xl" />
             </a>
             <a
-              href="https://linkedin.com"
+              href="https://www.linkedin.com/in/mazen-ahmed-96832a325?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app"
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-400 hover:text-purple-400 transition-colors"
