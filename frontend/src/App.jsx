@@ -4,11 +4,11 @@ import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Features from "./pages/Features";
 import Quiz from "./pages/Quiz";
-import Leaderboard from "./pages/Leaderboard";
+import FileAnalyzer from "./pages/FileAnalyzer";
 import Footer from "./components/Footer";
 import NotFound from "./pages/NotFound";
 import Chatbot from "./pages/Chatbot";
-import Dashboard from "./pages/Dashboard";
+import Leaderboard from "./pages/Leaderboard";
 import LessonAnalysis from "./pages/LessonAnalysis";
 
 function App() {
@@ -20,10 +20,10 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/features" element={<Features />} />
           <Route path="/quiz" element={<Quiz />} />
-          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/file-analyzer" element={<FileAnalyzer />} />
           <Route path="/chat" element={<Chatbot />} />
-          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/lesson-analysis" element={<LessonAnalysis />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>

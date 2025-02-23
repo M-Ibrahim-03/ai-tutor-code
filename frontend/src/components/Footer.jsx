@@ -70,7 +70,7 @@ export default function Footer() {
           {/* Social Links */}
           <div className="flex gap-4">
             <a
-              href="https://github.com/yourusername"
+              href="https://github.com/M-Ibrahim-03/ai-tutor-code"
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-400 hover:text-purple-400 transition-colors"
@@ -78,7 +78,7 @@ export default function Footer() {
               <FaGithub className="text-2xl" />
             </a>
             <a
-              href="https://linkedin.com/in/yourusername"
+              href="https://linkedin.com"
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-400 hover:text-purple-400 transition-colors"

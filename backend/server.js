@@ -6,14 +6,43 @@ import rateLimit from 'express-rate-limit';
 import connectDB from './config/db.js';
 import aiRoutes from './routes/aiRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import multer from 'multer';
+import { handleDeprecationWarnings } from './utils/deprecationHandler.js';
 
 dotenv.config();
 
 const app = express();
 
-// Increase payload size limit
-app.use(express.json({ limit: '10mb' }));
+// Increase payload size limit and add error handling for large files
+app.use(express.json({ 
+  limit: '10mb',
+  verify: (req, res, buf) => {
+    try {
+      JSON.parse(buf);
+    } catch (e) {
+      res.status(400).json({ error: 'Invalid JSON' });
+      throw new Error('Invalid JSON');
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Add error handling for multer
+app.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        error: 'File is too large',
+        details: 'Maximum file size is 10MB'
+      });
+    }
+    return res.status(400).json({
+      error: 'File upload error',
+      details: error.message
+    });
+  }
+  next(error);
+});
 
 // Database connection with retry logic
 const connectWithRetry = async () => {
@@ -85,6 +114,9 @@ process.on('unhandledRejection', (reason, promise) => {
   }
 });
 
+// Handle deprecation warnings
+handleDeprecationWarnings();
+
 // Routes
 app.use('/api/v1/ai', aiRoutes);
 
@@ -101,18 +133,38 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not Found' });
 });
 
-const PORT = process.env.PORT || 5000;
+const startServer = async () => {
+  const PORT = process.env.PORT || 5000;
+  
+  try {
+    // Check if port is in use
+    const server = app.listen(PORT);
+    
+    server.on('listening', () => {
+      console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+    });
 
-const server = app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-});
+    server.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use. Please try these solutions:`);
+        console.log('1. Kill the process using the port:');
+        console.log('   Windows: netstat -ano | findstr :5000');
+        console.log('   Linux/Mac: lsof -i :5000');
+        console.log('2. Change the PORT in .env file');
+        console.log('3. Wait a few seconds and try again\n');
+        process.exit(1);
+      } else {
+        console.error('Server error:', error);
+        process.exit(1);
+      }
+    });
 
-// Handle server errors
-server.on('error', (error) => {
-  if (error.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use`);
+    return server;
+  } catch (error) {
+    console.error('Failed to start server:', error);
     process.exit(1);
-  } else {
-    console.error('Server error:', error);
   }
-});
+};
+
+// Start the server
+startServer();

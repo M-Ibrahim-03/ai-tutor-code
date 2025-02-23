@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { FaRobot, FaBook, FaBrain, FaTrophy, FaChartLine, FaGraduationCap, FaArrowRight } from 'react-icons/fa';
+import { FaRobot, FaBook, FaBrain, FaFileAlt, FaChartLine, FaGraduationCap, FaArrowRight } from 'react-icons/fa';
 
 export default function Features() {
   const features = [
@@ -32,13 +32,13 @@ export default function Features() {
       stats: ['Dynamic Questions', 'Instant Feedback', 'Progress Tracking']
     },
     {
-      id: 'leaderboard',
-      title: 'Achievement Board',
-      description: 'Track your progress and compete with fellow learners. Earn points, unlock achievements, and climb the ranks.',
-      icon: <FaTrophy className="text-4xl" />,
+      id: 'file-analyzer',
+      title: 'File Analyzer',
+      description: 'Upload your documents and let our AI create smart summaries. Support for PDF, DOC, DOCX, and TXT files with instant analysis.',
+      icon: <FaFileAlt className="text-4xl" />,
       color: 'from-amber-500 to-orange-500',
-      link: '/leaderboard',
-      stats: ['Real-time Rankings', 'Weekly Highlights', 'Achievement Badges']
+      link: '/file-analyzer',
+      stats: ['Multiple File Types', 'Smart Summaries', 'Key Points Extraction']
     }
   ];
 

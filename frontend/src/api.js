@@ -19,7 +19,7 @@ api.interceptors.response.use(
     if (error.response?.status === 429) {
       console.error('Rate limit exceeded');
     } else if (!error.response) {
-      console.error('Network error');
+      console.error('Network error: Unable to connect to the server. Please ensure the server is running.');
     }
     return Promise.reject(error);
   }

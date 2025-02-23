@@ -2,6 +2,10 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from 'dotenv';
 import { SpeechClient } from '@google-cloud/speech';
 import OpenAI from 'openai';
+import pdfParse from 'pdf-parse';
+import mammoth from 'mammoth';
+import textToSpeech from '@google-cloud/text-to-speech';
+import { parsePDF } from '../utils/pdfParser.js';
 
 dotenv.config();
 
@@ -10,6 +14,9 @@ const speechClient = new SpeechClient();
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
+
+// Create Text-to-Speech client
+const ttsClient = new textToSpeech.TextToSpeechClient();
 
 export const askAI = async (req, res) => {
   try {
@@ -466,6 +473,91 @@ Remember to maintain the exact formatting as shown above.`;
       error: 'Analysis failed',
       details: error.message || 'An unexpected error occurred while analyzing the lesson content',
       type: error.name || 'UnknownError'
+    });
+  }
+};
+
+export const analyzeFile = async (req, res) => {
+  try {
+    console.log('Received file analysis request');
+    
+    if (!req.file) {
+      return res.status(400).json({ 
+        error: 'No file uploaded',
+        details: 'Please select a file to analyze'
+      });
+    }
+
+    let textContent = '';
+
+    try {
+      switch (req.file.mimetype) {
+        case 'application/pdf':
+          try {
+            textContent = await parsePDF(req.file.buffer);
+          } catch (pdfError) {
+            console.error('PDF parsing error:', pdfError);
+            return res.status(400).json({
+              error: 'Failed to process PDF',
+              details: 'Could not extract text from the PDF file'
+            });
+          }
+          break;
+
+        case 'text/plain':
+          textContent = req.file.buffer.toString('utf-8');
+          break;
+
+        case 'application/msword':
+        case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+          const result = await mammoth.extractRawText({ buffer: req.file.buffer });
+          textContent = result.value;
+          break;
+
+        default:
+          return res.status(400).json({
+            error: 'Unsupported file type',
+            details: `File type ${req.file.mimetype} is not supported. Please use PDF, TXT, DOC, or DOCX files.`
+          });
+      }
+
+      if (!textContent || textContent.trim().length === 0) {
+        return res.status(400).json({
+          error: 'Empty content',
+          details: 'No readable text found in the file'
+        });
+      }
+
+      // Use Gemini API to analyze the content
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      
+      const prompt = `Create a brief, engaging summary of the following text. Make it conversational and easy to understand:
+
+      ${textContent.substring(0, 5000)}`;
+
+      const result = await model.generateContent(prompt);
+      const summary = result.response.text();
+
+      res.json({
+        success: true,
+        fileName: req.file.originalname,
+        fileType: req.file.mimetype,
+        summary: summary
+      });
+
+    } catch (error) {
+      console.error('Processing error:', error);
+      return res.status(500).json({
+        error: 'Processing failed',
+        details: 'Failed to process the file content'
+      });
+    }
+
+  } catch (error) {
+    console.error('File analysis error:', error);
+    res.status(500).json({
+      error: 'Analysis failed',
+      details: 'An error occurred while analyzing the file'
     });
   }
 };
